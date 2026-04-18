@@ -1,0 +1,68 @@
+services:
+  postgresql:
+    image: pgvector/pgvector:pg17
+    networks:
+      - app_net
+    env_file:
+      - ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./storage/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+
+  redis:
+    image: redis:8.6.2
+    networks:
+      - app_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 5s
+      retries: 5
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    networks:
+      - app_net
+    command: uvicorn api.app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    depends_on:
+      - postgresql
+      - redis
+    restart: unless-stopped
+
+  dev_agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    networks:
+      - app_net
+    command: celery -A workers.tasks worker --loglevel=INFO -P solo
+    env_file:
+      - ./.env
+    depends_on:
+      - postgresql
+      - redis
+    volumes:
+      - ./storage/logs:/app/storage/logs:rw
+      - ./models:/app/models:rw
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  app_net:
+    driver: bridge

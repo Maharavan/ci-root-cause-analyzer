@@ -1,0 +1,14 @@
+fastapi
+celery
+litellm
+instructor
+hdbscan
+faiss-cpu
+numpy
+psycopg2-binary
+redis
+uvicorn
+python-dotenv
+pydantic
+pydantic-settings
+pgvector
