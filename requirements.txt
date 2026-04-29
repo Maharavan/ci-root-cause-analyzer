@@ -1,4 +1,5 @@
 fastapi
+typer[all]
 celery
 litellm
 instructor

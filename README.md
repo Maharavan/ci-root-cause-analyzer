@@ -1,26 +1,60 @@
-# CI Root cause analyzer
+<div align="center">
 
-An AI-powered CI/CD pipeline failure analysis agent that automatically ingests build failures from Jenkins and GitHub Actions, classifies them, performs root-cause analysis (RCA) using an LLM, stores learned patterns for instant future recall, and emails an HTML incident report to the responsible team.
+# 🔍 CI Root Cause Analyzer
+
+**Stop hunting through logs. Let AI tell you exactly what broke and who owns it.**
+
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Celery](https://img.shields.io/badge/Celery-5.x-37814A?style=for-the-badge&logo=celery&logoColor=white)](https://docs.celeryq.dev)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Redis](https://img.shields.io/badge/Redis-8-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
+[![LiteLLM](https://img.shields.io/badge/LiteLLM-Powered-FF6B6B?style=for-the-badge&logo=openai&logoColor=white)](https://litellm.ai)
+
+<br/>
+
+> Your pipeline fails. Instead of digging through hundreds of lines of logs, this agent automatically fetches them, classifies the failure, runs LLM-powered root cause analysis, and emails a structured incident report to the right team — **in seconds, not hours.**
+
+<br/>
+
+[![Jenkins](https://img.shields.io/badge/Jenkins-Supported-D24939?style=flat-square&logo=jenkins&logoColor=white)](https://jenkins.io)
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-Supported-2088FF?style=flat-square&logo=github-actions&logoColor=white)](https://github.com/features/actions)
+[![GitLab CI](https://img.shields.io/badge/GitLab_CI-via_CLI-FC6D26?style=flat-square&logo=gitlab&logoColor=white)](https://gitlab.com)
+[![CircleCI](https://img.shields.io/badge/CircleCI-via_CLI-343434?style=flat-square&logo=circleci&logoColor=white)](https://circleci.com)
+[![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-via_CLI-0078D7?style=flat-square&logo=azure-devops&logoColor=white)](https://azure.microsoft.com/en-us/products/devops)
+[![Bitbucket](https://img.shields.io/badge/Bitbucket_Pipelines-via_CLI-0052CC?style=flat-square&logo=bitbucket&logoColor=white)](https://bitbucket.org)
+
+</div>
 
 ---
 
-## Table of Contents
+Built on a **three-stage classification pipeline** (regex → semantic → LLM fallback) with a self-learning knowledge store: the more failures it sees, the faster and more accurate it gets.
 
-- [Architecture](#architecture)
-- [Data Flow](#data-flow)
-- [Components](#components)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running the Services](#running-the-services)
-- [API Reference](#api-reference)
-- [Classification Pipeline](#classification-pipeline)
-- [Development](#development)
+Supports two modes of operation:
+- **🌐 Webhook-driven HTTP API** (FastAPI + Celery) — for production pipelines with Jenkins and GitHub Actions native integration
+- **⌨️ CLI** (`cli.py`) — for local debugging and one-off analysis from any CI/CD service, no Redis or database setup required
 
 ---
 
-## Architecture
+## 📑 Table of Contents
+
+- [🏗️ Architecture](#️-architecture)
+- [🔄 Data Flow](#-data-flow)
+- [🧩 Components](#-components)
+- [📁 Project Structure](#-project-structure)
+- [✅ Prerequisites](#-prerequisites)
+- [⚙️ Installation](#️-installation)
+- [🔧 Configuration](#-configuration)
+- [🚀 Running the Services](#-running-the-services)
+- [⌨️ CLI](#️-cli)
+- [📡 API Reference](#-api-reference)
+- [🧠 Classification Pipeline](#-classification-pipeline)
+- [🛠️ Development](#️-development)
+
+---
+
+## 🏗️ Architecture
 
 ```mermaid
 graph TB
@@ -119,7 +153,7 @@ graph TB
 
 ---
 
-## Data Flow
+## 🔄 Data Flow
 
 ```mermaid
 sequenceDiagram
@@ -173,35 +207,36 @@ sequenceDiagram
 
 ---
 
-## Components
+## 🧩 Components
 
 | Component | Path | Responsibility |
 |---|---|---|
-| **FastAPI App** | `api/app/main.py` | HTTP server, startup hooks |
-| **Ingest Routes** | `api/routes/ingest.py` | Accept Jenkins/GitHub failure webhooks |
-| **Health Route** | `api/routes/health.py` | Postgres / Redis / Celery health check |
-| **PipelineFactory** | `analyzer/connectors/pipeline_factory.py` | Detect CI platform, delegate log fetch |
-| **JenkinsClient** | `analyzer/connectors/jenkins_client.py` | Jenkins Blue Ocean REST API |
-| **GitHubClient** | `analyzer/connectors/github_client.py` | GitHub Actions REST API |
-| **LogAnalyzer** | `analyzer/extractors/log_analyzer.py` | Regex-based signal extraction from logs |
-| **SmartDeDuplicator** | `analyzer/deduplicator/smart_deduplicator.py` | HDBSCAN semantic deduplication |
-| **RegexClassifier** | `analyzer/classifiers/regex_classifier.py` | Weighted regex pattern scoring |
-| **SemanticClassifier** | `analyzer/classifiers/semantic_classifier.py` | FAISS k-NN nearest-neighbour classifier |
-| **LLMClassifier** | `analyzer/classifiers/llm_classifier.py` | LLM fallback for unresolved signals |
-| **ClassificationOrchestrator** | `analyzer/classifiers/classification_orchestrator.py` | Fuse regex+semantic, auto-learn feedback |
-| **EmbeddingService** | `analyzer/embedding/embedding_service.py` | LiteLLM embedding wrapper (singleton) |
-| **RCAEngine** | `analyzer/rca_engine/rca_engine.py` | LLM-based structured RCA |
-| **generate_report** | `analyzer/notifier/generate_report.py` | HTML incident report builder |
-| **mail_notifier** | `analyzer/notifier/mail_notifier.py` | SMTP email dispatch |
-| **DatabaseInit** | `storage/database.py` | PostgreSQL schema bootstrap |
-| **LogStorer** | `storage/logs.py` | Read/write log and result files |
-| **PipelineFailureDB** | `storage/pipeline_failure_record.py` | Failure metadata CRUD |
-| **FailureKnowledgeDB** | `storage/failure_knowledge_record.py` | pgvector pattern store + similarity search |
-| **Celery Tasks** | `workers/tasks.py` | normalize / classify / analyze async tasks |
+| **🌐 FastAPI App** | `api/app/main.py` | HTTP server, startup hooks |
+| **⌨️ CLI App** | `cli.py` | CLI for root cause analysis |
+| **📥 Ingest Routes** | `api/routes/ingest.py` | Accept Jenkins/GitHub failure webhooks |
+| **❤️ Health Route** | `api/routes/health.py` | Postgres / Redis / Celery health check |
+| **🔀 PipelineFactory** | `analyzer/connectors/pipeline_factory.py` | Detect CI platform, delegate log fetch |
+| **🔧 JenkinsClient** | `analyzer/connectors/jenkins_client.py` | Jenkins Blue Ocean REST API |
+| **🐙 GitHubClient** | `analyzer/connectors/github_client.py` | GitHub Actions REST API |
+| **🔎 LogAnalyzer** | `analyzer/extractors/log_analyzer.py` | Regex-based signal extraction from logs |
+| **🧹 SmartDeDuplicator** | `analyzer/deduplicator/smart_deduplicator.py` | HDBSCAN semantic deduplication |
+| **📐 RegexClassifier** | `analyzer/classifiers/regex_classifier.py` | Weighted regex pattern scoring |
+| **🧠 SemanticClassifier** | `analyzer/classifiers/semantic_classifier.py` | FAISS k-NN nearest-neighbour classifier |
+| **🤖 LLMClassifier** | `analyzer/classifiers/llm_classifier.py` | LLM fallback for unresolved signals |
+| **🎛️ ClassificationOrchestrator** | `analyzer/classifiers/classification_orchestrator.py` | Fuse regex+semantic, auto-learn feedback |
+| **🔗 EmbeddingService** | `analyzer/embedding/embedding_service.py` | LiteLLM embedding wrapper (singleton) |
+| **🔬 RCAEngine** | `analyzer/rca_engine/rca_engine.py` | LLM-based structured RCA |
+| **📄 generate_report** | `analyzer/notifier/generate_report.py` | HTML incident report builder |
+| **📧 mail_notifier** | `analyzer/notifier/mail_notifier.py` | SMTP email dispatch |
+| **🗄️ DatabaseInit** | `storage/database.py` | PostgreSQL schema bootstrap |
+| **💾 LogStorer** | `storage/logs.py` | Read/write log and result files |
+| **📋 PipelineFailureDB** | `storage/pipeline_failure_record.py` | Failure metadata CRUD |
+| **🧬 FailureKnowledgeDB** | `storage/failure_knowledge_record.py` | pgvector pattern store + similarity search |
+| **⚙️ Celery Tasks** | `workers/tasks.py` | normalize / classify / analyze async tasks |
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 ci-root-cause-analyzer/
@@ -257,6 +292,7 @@ ci-root-cause-analyzer/
 ├── workers/
 │   ├── celery_app.py           # Celery app + broker config
 │   └── tasks.py                # normalize / classify / analyze tasks
+├── cli.py                  # CLI entry point (no Celery/Redis required)
 ├── docker-compose.yml
 ├── Dockerfile
 ├── pyproject.toml
@@ -265,20 +301,22 @@ ci-root-cause-analyzer/
 
 ---
 
-## Prerequisites
+## ✅ Prerequisites
 
-- **Docker** ≥ 24 and **Docker Compose** ≥ 2
-- An **LLM API key** compatible with LiteLLM (e.g., OpenAI, Azure OpenAI, Groq)
-- A configured SMTP account for email notifications
-- Jenkins or GitHub Actions CI system to send webhooks
+| Requirement | Details |
+|---|---|
+| 🐳 **Docker** ≥ 24 + **Docker Compose** ≥ 2 | Required for containerised deployment |
+| 🤖 **LLM API key** | Any LiteLLM-compatible provider (OpenAI, Azure, Groq, etc.) |
+| 📧 **SMTP account** | For email delivery of RCA reports |
+| 🔧 **Jenkins** or **GitHub Actions** | CI system to send webhooks (HTTP API mode) |
 
 ---
 
-## Installation
+## ⚙️ Installation
 
 ```bash
 # Clone repository
-git clone 
+git clone <repo-url>
 cd ci-root-cause-analyzer
 
 # Copy the environment template and fill in values
@@ -287,46 +325,46 @@ cp .env.example .env
 
 ---
 
-## Configuration
+## 🔧 Configuration
 
-Create a `.env` file in the project root with the following variables:
+Create a `.env` file in the project root:
 
 ```dotenv
-# PostgreSQL
+# 🗄️ PostgreSQL
 POSTGRES_USER=agentic
 POSTGRES_PASSWORD=agentic
 POSTGRES_DB=agentic_db
 DB_HOST=postgresql
 DB_PORT=5432
 
-# Redis
+# ⚡ Redis
 REDIS_HOST=redis
 REDIS_PORT=6379
 
-# Jenkins
+# 🔧 Jenkins
 JENKINS_URL=https://<jenkins-host>/blue/rest/organizations/jenkins/
 JENKINS_USER=<username>
 JENKINS_TOKEN=<api-token>
 
-# GitHub
+# 🐙 GitHub
 GITHUB_TOKEN=<personal-access-token>
 GITHUB_API_BASE_URL=https://api.github.com
 
-# LLM (any LiteLLM-supported provider)
+# 🤖 LLM (any LiteLLM-supported provider)
 LLM_API_KEY=<api-key>
 RCA_LLM_DEPLOYMENT=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small
 RCA_TEMPERATURE=0
 CLASSIFY_TEMPERATURE=0
 
-# SMTP
+# 📧 SMTP
 SMTP_SERVER=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=sender@example.com
 SMTP_PASSWORD=<password>
 DEFAULT_MAIL=fallback@example.com
 
-# Storage
+# 💾 Storage
 LOG_PATH=storage/logs
 SEMANTIC_PATH=models/semantic.pkl
 FAILURE_TABLE=failures
@@ -335,9 +373,9 @@ FAILURE_PATTERN_TABLE=failure_knowledge_table
 
 ---
 
-## Running the Services
+## 🚀 Running the Services
 
-### Docker Compose (recommended)
+### 🐳 Docker Compose (recommended)
 
 ```bash
 # Build and start all services
@@ -354,15 +392,16 @@ docker compose logs -f dev_agent
 docker compose down
 ```
 
-This starts:
+**Services started:**
+
 | Service | Port | Description |
 |---|---|---|
-| `postgresql` | 5432 | PostgreSQL 17 + pgvector |
-| `redis` | 6379 | Redis 8 message broker |
-| `ingest` | 8000 | FastAPI ingest service |
-| `dev_agent` | — | Celery worker |
+| 🗄️ `postgresql` | `5432` | PostgreSQL 17 + pgvector |
+| ⚡ `redis` | `6379` | Redis 8 message broker |
+| 🌐 `ingest` | `8000` | FastAPI ingest service |
+| ⚙️ `dev_agent` | — | Celery worker |
 
-### Local Development
+### 💻 Local Development
 
 ```bash
 # Install dependencies
@@ -380,7 +419,115 @@ python -c "from analyzer.classifiers.training.synthetic_data_generator import ge
 
 ---
 
-## API Reference
+## ⌨️ CLI
+
+`cli.py` runs the full analysis pipeline **synchronously and without Celery or Redis** — useful for local debugging, one-off analysis, and CI scripts. It calls the same underlying service functions as the Celery tasks.
+
+The `analyze logs` subcommand accepts plain `.log` files from **any source** — Jenkins, GitHub Actions, GitLab CI, CircleCI, Bitbucket Pipelines, Azure DevOps, or any custom service.
+
+```bash
+pip install -r requirements.txt   # includes typer[all]
+```
+
+### 🏳️ `--use-db` flag
+
+All three subcommands accept `--use-db` (off by default). Without it, **no PostgreSQL connection is required**.
+
+| With `--use-db` you get | Without `--use-db` |
+|---|---|
+| ✅ Failure records persisted to PostgreSQL | ❌ No DB writes |
+| ✅ pgvector cache lookup (≥ 0.92 similarity = instant recall) | ❌ Always runs full RCA |
+| ✅ Newly analysed patterns stored for future cache hits | ❌ No pattern learning |
+
+### 📦 Subcommands
+
+#### `analyze jenkins` — fetch logs from Jenkins
+
+```bash
+# fully local — no database needed
+python cli.py analyze jenkins \
+  --job-name "my-project/my-pipeline" \
+  --build-number 42 \
+  --commit abc123 \
+  --branch main
+
+# with DB persistence and email
+python cli.py analyze jenkins \
+  --job-name "my-project/my-pipeline" \
+  --build-number 42 \
+  --commit abc123 \
+  --branch main \
+  --dev-email dev@example.com \
+  --ci-email devops@example.com \
+  --use-db
+```
+
+> Prompts for any omitted required options.
+
+#### `analyze github` — fetch logs from GitHub Actions
+
+```bash
+# fully local — no database needed
+python cli.py analyze github \
+  --owner my-org \
+  --repo my-repo \
+  --run-id 12345678 \
+  --commit abc123 \
+  --branch main
+
+# with DB persistence
+python cli.py analyze github \
+  --owner my-org --repo my-repo --run-id 12345678 \
+  --commit abc123 --branch main \
+  --dev-email dev@example.com \
+  --use-db
+```
+
+#### `analyze logs` — analyze local `.log` files from any CI/CD service
+
+No Jenkins or GitHub connection needed. Point the command at any directory containing `.log` files — from **any CI/CD platform**:
+
+```bash
+# fully local — no database needed
+python cli.py analyze logs ./my-logs/
+
+# with email notification
+python cli.py analyze logs ./my-logs/ \
+  --dev-email dev@example.com \
+  --branch feature/auth
+
+# enable pgvector knowledge-store lookup and pattern storage
+python cli.py analyze logs ./my-logs/ --use-db
+```
+
+The command copies your `.log` files into `storage/logs/<failure_id>/`, runs the full extract → deduplicate → classify → RCA chain, and writes results alongside them.
+
+### 📊 HTTP Pipeline vs CLI Comparison
+
+| Capability | 🌐 HTTP + Celery | ⌨️ CLI (default) | ⌨️ CLI (`--use-db`) |
+|---|:---:|:---:|:---:|
+| Async / parallel tasks | ✅ | ❌ sequential | ❌ sequential |
+| Redis broker | required | not needed | not needed |
+| PostgreSQL | required | **not needed** | required |
+| Failure record + status tracking | ✅ | ❌ | ✅ |
+| pgvector cache lookup | ✅ | ❌ | ✅ |
+| Pattern auto-learning | ✅ | ❌ | ✅ |
+| HTML report + email | ✅ | ✅ | ✅ |
+
+### 📂 Output Files
+
+Results are written to `storage/logs/<failure_id>/`:
+
+| File | Contents |
+|---|---|
+| 📄 `<stage>.log` | Raw stage logs (jenkins/github) or copied input logs |
+| 🔍 `error.json` | Classified signals with category, confidence, owner |
+| 🧠 `root_cause.json` | Structured RCA results per signal |
+| 📊 `rca_report.html` | HTML incident report (same as emailed report) |
+
+---
+
+## 📡 API Reference
 
 ### `POST /failures/jenkins`
 
@@ -407,7 +554,7 @@ Ingest a Jenkins pipeline failure.
 ```json
 {
   "failure_id": "550e8400-e29b-41d4-a716-446655440000",
-  "data": { ... },
+  "data": { "..." : "..." },
   "status": "Received successfully"
 }
 ```
@@ -453,27 +600,31 @@ Returns liveness and readiness of all dependencies.
 }
 ```
 
+> 📖 **Interactive API Docs** (after starting the service):
+> - Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+> - ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
 ---
 
-## Classification Pipeline
+## 🧠 Classification Pipeline
 
 Failures are classified across **3 categories** using a three-stage pipeline:
 
 | Stage | Method | Fallback |
 |---|---|---|
-| 1. **Regex** | Weighted pattern matching against error line, context and stage | — |
-| 2. **Semantic** | FAISS k-NN on OpenAI embeddings | Trained on synthetic data |
-| 3. **LLM** | LiteLLM structured output | Only for `UNKNOWN` signals |
+| 1️⃣ **Regex** | Weighted pattern matching against error line, context and stage | — |
+| 2️⃣ **Semantic** | FAISS k-NN on OpenAI embeddings | Trained on synthetic data |
+| 3️⃣ **LLM** | LiteLLM structured output | Only for `UNKNOWN` signals |
 
-### Failure Categories
+### 🏷️ Failure Categories
 
 | Category | Covers | Owner Team |
 |---|---|---|
-| `DEV_FAILURE` | Compilation errors, linker failures, missing dependencies, code quality gate failures | Developers |
-| `TEST_FAILURE` | Test assertion failures, flaky tests, fixture/snapshot mismatches, test timeouts | QA Engineers |
-| `CI_INFRA_FAILURE` | Pipeline config, env/secrets, artifact publishing, Docker, Kubernetes, network, resource exhaustion, CI agents | DevOps Engineers |
+| 🔴 `DEV_FAILURE` | Compilation errors, linker failures, missing dependencies, code quality gate failures | 👩‍💻 Developers |
+| 🟡 `TEST_FAILURE` | Test assertion failures, flaky tests, fixture/snapshot mismatches, test timeouts | 🧪 QA Engineers |
+| 🔵 `CI_INFRA_FAILURE` | Pipeline config, env/secrets, artifact publishing, Docker, Kubernetes, network, resource exhaustion, CI agents | 🛠️ DevOps Engineers |
 
-### Fusion Scoring
+### ⚖️ Fusion Scoring
 
 Regex and semantic scores are combined with fixed weights before applying per-category confidence thresholds:
 
@@ -483,29 +634,29 @@ fused_score = (0.65 × regex_confidence) + (0.35 × semantic_confidence)
 
 Signals whose fused score falls below `ABSOLUTE_MIN_CONFIDENCE = 0.20` are always marked `UNKNOWN` and routed to the LLM classifier.
 
-### Auto-Learning
+### 🔁 Auto-Learning
 
-High-confidence classifications (`confidence > 0.80`) are fed back into the FAISS index as new training examples. After 20 feedback samples accumulate the index is retrained and persisted to `models/semantic.faiss` + `models/semantic.pkl`.
+High-confidence classifications (`confidence > 0.80`) are fed back into the FAISS index as new training examples. After **20 feedback samples** accumulate the index is retrained and persisted to `models/semantic.faiss` + `models/semantic.pkl`.
 
 ---
 
-## Development
+## 🛠️ Development
 
-### Running Tests
+### 🧪 Running Tests
 
 ```bash
 pytest
 ```
 
-### Regenerating Synthetic Training Data
+### 🔄 Regenerating Synthetic Training Data
 
 ```bash
 python -m analyzer.classifiers.training.synthetic_data_generator
 ```
 
-### Interactive API Docs
+### 📖 Interactive API Docs
 
 After starting the service, open:
 
-- Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
-- ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- 🟢 Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+- 📘 ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
